@@ -275,8 +275,7 @@ Detailed technical whitepapers are available in the [`docs/`](docs/) directory:
 **Theme**: Niti Vahan (eYRC 2026–27)  
 **Host Institution**: e-Yantra, Indian Institute of Technology Bombay (IIT Bombay)  
 
-- **Jatin Makhija** ([@jatin-makhija](https://github.com)) — System Architecture, Kinematics, Control Systems, Perception Pipeline
-- **Samriddhi Shrikrishan** — Mathematical Modeling, Trajectory Planning, Simulation Verification
+- **Jatin Makhija** ([@JatinMakhija-10](https://github.com/JatinMakhija-10)) — Autonomous Systems Architecture, Kinematics, Control Systems, Perception Pipeline & Trajectory Planning
 
 ---
 

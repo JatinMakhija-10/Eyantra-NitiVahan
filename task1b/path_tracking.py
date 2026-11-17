@@ -20,7 +20,7 @@
 '''
 
 # Team ID:          2199
-# Author List:      Jatin Makhija , Samriddhi Shrikrishan
+# Author List:      Jatin Makhija
 # Filename:         path_tracking.py
 # Functions:        ackermann_wheel_angles, compute_steering, _wrap_angle
 # Global variables: K_CROSS, K_HEAD, STEER_LIMIT

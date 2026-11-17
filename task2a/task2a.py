@@ -20,7 +20,7 @@
 '''
 
 # Team ID:          2199
-# Author List:      Jatin Makhija , Samriddhi Shrikrishan
+# Author List:      Jatin Makhija
 # Filename:         task2a.py
 # Functions:        detect_lane, compute_control, _get_matrix, _clusters, _ground_to_pixel, ackermann_wheel_angles, _dump_debug
 # Global variables: WHEELBASE, TRACK_WIDTH, WHEEL_OFFSET, WHEEL_RADIUS, LANE_WIDTH_M, STEER_LIMIT, IMG_W, IMG_H,

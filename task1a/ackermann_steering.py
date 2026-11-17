@@ -20,7 +20,7 @@
 '''
 
 # Team ID:          2199
-# Author List:      Jatin Makhija , Samriddhi Shrikrishan
+# Author List:      Jatin Makhija
 # Filename:         ackermann_steering.py
 # Functions:        ackermann_wheel_angles
 # Global variables: None

@@ -20,7 +20,7 @@
 '''
 
 # Team ID:          2199
-# Author List:      Jatin Makhija , Samriddhi Shrikrishan
+# Author List:      Jatin Makhija
 # Filename:         lane_detection.py
 # Functions:        detect_lane, _marking_masks, _dash_points, _fit_dash_curve,
 #                   _estimate_from_dashes, _runs, _yellow_boundary, _yellow_only
