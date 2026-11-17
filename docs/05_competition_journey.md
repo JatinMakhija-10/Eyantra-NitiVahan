@@ -136,6 +136,12 @@ Operating on raw perspective images caused lane curves to distort unpredictably.
 ### The Inner Lane Rear-Wheel Grazing Trap
 While the outer lane navigated smoothly, testing in the inner lane revealed a dangerous phenomenon: the vehicle's rear wheels grazed the inside yellow boundary during hairpin turns.
 
+<div align="center">
+  <img src="../assets/simulation/tight_hairpin_turn.png" alt="Hairpin turn" width="45%">
+  <img src="../assets/simulation/hospital_building_turn.png" alt="Hospital turn" width="45%">
+  <p><i>Left: Sharp cornering around buildings. Right: Stabilizing after exiting the hospital curve.</i></p>
+</div>
+
 Because Ackermann vehicles pivot about their rear axle, the rear wheels cut inside the trajectory of the front wheels ($\Delta r \approx L^2 / (2R)$). On the inner lane's tight $0.4\text{ m}$ radius, this off-tracking consumed almost all available margin.
 
 **The Fix**: We introduced an outward bias offset $B_{out} = 0.035\text{ m}$ proportional to path curvature:

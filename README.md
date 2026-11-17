@@ -15,6 +15,11 @@
   <b>A full-stack autonomous vehicle software architecture modeling road ethics and civic discipline as deterministic mathematical constraints.</b>
 </p>
 
+<div align="center">
+  <img src="assets/simulation/arena_circuit_overview.jpg" alt="Niti Vahan Arena Overview in CoppeliaSim" width="90%">
+  <p><i>Figure 1: Full-circuit isometric view of the Niti Vahan simulation environment in CoppeliaSim Edu 4.10, featuring dual concentric lanes, urban structures, traffic intersections, and civic infrastructure.</i></p>
+</div>
+
 [System Architecture](#system-architecture) •
 [Mathematical Foundations](#mathematical-foundations) •
 [Task Breakdown](#tasks-breakdown--implementation) •
@@ -165,6 +170,31 @@ To enter a narrow $22\text{ cm}$ bay with an $18\text{ cm}$ car without exceedin
 - **File**: [`task2a/task2a.py`](task2a/task2a.py) | **Scene**: `Task_2A.ttt`
 - **Description**: Monocular vision-based closed-loop driving around concentric arena loops with analytical IPM and level-triggered stop control.
 - **Score**: 40.0 / 40.0.
+
+<div align="center">
+  <table>
+    <tr>
+      <td align="center"><b>Inner Lane Curve Navigation</b></td>
+      <td align="center"><b>Steering Knuckle Joint Splitting</b></td>
+      <td align="center"><b>Vision Sensor Properties</b></td>
+    </tr>
+    <tr>
+      <td><img src="assets/simulation/inner_lane_cornering.png" width="260"></td>
+      <td><img src="assets/simulation/steering_joint_actuation.png" width="260"></td>
+      <td><img src="assets/simulation/vision_sensor_properties.png" width="260"></td>
+    </tr>
+    <tr>
+      <td align="center"><b>Hairpin Turn around Building</b></td>
+      <td align="center"><b>Outer Lane High-Speed Cruise</b></td>
+      <td align="center"><b>Top-Down Curve Trajectory</b></td>
+    </tr>
+    <tr>
+      <td><img src="assets/simulation/tight_hairpin_turn.png" width="260"></td>
+      <td><img src="assets/simulation/outer_lane_navigation.png" width="260"></td>
+      <td><img src="assets/simulation/topdown_curve_navigation.png" width="260"></td>
+    </tr>
+  </table>
+</div>
 
 ### [Task 2B: Multi-Class Road Sign & Obstacle Detection](task2b/)
 - **File**: [`task2b/sign_obstacle_detection.py`](task2b/sign_obstacle_detection.py)

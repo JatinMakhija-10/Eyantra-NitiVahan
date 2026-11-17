@@ -2,6 +2,12 @@
 
 This module implements closed-loop vision-based autonomous navigation of the concentric arena loop in **CoppeliaSim**, featuring metric **Inverse Perspective Mapping (IPM)**, multi-band clustering, curvature-compensated **Pure Pursuit** steering, and autonomous stop discipline.
 
+<div align="center">
+  <img src="../assets/simulation/inner_lane_cornering.png" alt="Inner Lane Cornering" width="48%">
+  <img src="../assets/simulation/outer_lane_navigation.png" alt="Outer Lane Navigation" width="48%">
+  <p><i>Left: Niti Vahan tracking the inner curve with outward offset compensation. Right: High-speed cruising in the outer lane.</i></p>
+</div>
+
 ---
 
 ## 1. System Pipeline
