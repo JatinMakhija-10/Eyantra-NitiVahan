@@ -19,11 +19,13 @@
 *****************************************************************************************
 '''
 
-# Team ID:          < Team-ID >
-# Author List:      < Names of the team members who worked on this file, comma separated >
+# Team ID:          2199
+# Author List:      Jatin Makhija
 # Filename:         task2c.py
 # Functions:        parking_manoeuvre
-# Global variables: < List any global variables you add, "None" if you add none >
+# Global variables: THETA_LO, THETA_HI, THETA_MARGIN, CROSSED_BY, ARC_ALLOW, ARC_RADIUS, LINE_GAIN,
+#                   HEADING_GAIN, BEARING_SOFT, BEARING_FADE, SPEED_CRUISE, SPEED_CREEP,
+#                   SLOW_FORWARD, STOP_FORWARD, SETTLE_FRAMES, MISS_HOLD, _ST
 
 
 ####################### IMPORT MODULES #######################
@@ -76,66 +78,123 @@ def parking_manoeuvre(pose):
     vehicle ends up inside the target bay - on its centre line, parallel to
     it, stopped in the middle.
 
-    This is the whole of Task 2C. Finding the marker in the camera image and
-    working out where the vehicle is relative to the bay is done for you
-    below; you are handed the answer as `pose` and decide what to do with it.
+    Method: the vehicle follows a planned path in (offset, heading) space. A
+    constant-heading crossing at the angle needed to reach the line in the
+    road that is left, then a circular arc of radius ARC_RADIUS that is exactly
+    straight as the offset reaches zero. Steering = arc curvature (feed
+    forward) + a heading correction, so the loop does not lag the plan.
 
     Input Arguments:
     ---
     `pose` :    [ dict or None ]
         None on a frame where the target bay's marker was not seen.
-        Otherwise where the vehicle is, relative to the target bay:
-
-          'lateral'  [float] metres. Sideways offset of the front axle from
-                             the bay's centre line. POSITIVE = the vehicle
-                             is to the LEFT of the line. 0 = on it.
-          'heading'  [float] radians. Direction the vehicle points, relative
-                             to the bay's long axis. 0 = parallel to the bay.
-                             POSITIVE = turned to the LEFT.
-          'forward'  [float] metres. Distance along the road from the
-                             vehicle's centre to the marker line. It shrinks
-                             as you approach: BAY_MOUTH_FORWARD at the mouth,
-                             BAY_MIDDLE_FORWARD in the middle of the bay.
-          'bearing'  [float] radians. Where the marker appears in the camera
-                             view. 0 = straight ahead, POSITIVE = to the LEFT.
+        Otherwise 'lateral', 'heading', 'forward', 'bearing' (see the task).
 
     Returns:
     ---
-    `steering` :    [ float ]
-        Steering angle in RADIANS, POSITIVE TO THE LEFT. It is split into
-        the two front-wheel angles and clamped to the vehicle's 45 degree
-        limit for you.
-
-    `speed` :       [ float ]
-        Target velocity for both drive motors, in rad/s. Positive drives
-        forwards. 0.0 holds the vehicle still.
-
-    `parked` :      [ bool ]
-        True once the vehicle is parked. Returning True stops the vehicle
-        and ends the run, so return it only when you are done.
+    `steering` :    [ float ]   radians, positive to the left
+    `speed` :       [ float ]   rad/s, positive forwards
+    `parked` :      [ bool ]    True once parked
 
     Example call:
     ---
     steering, speed, parked = parking_manoeuvre(pose)
-
-    REMEMBER:
-    ---
-    Steering straight AT the marker is not parking. The bays are to the
-    right of the road, so pointing at the marker brings the vehicle in on a
-    diagonal, and a car that arrives crooked does not fit a bay with ~20 mm
-    to spare each side. Both 'lateral' and 'heading' have to reach zero.
-
-    The camera is 95 degrees wide. Turn much more than ~40 degrees across the
-    road and the marker slides out of view - `pose` becomes None, and there
-    is nothing left to steer by.
-
-    A single None frame is normal. Decide what to do on one; doing nothing
-    sensible is how a vehicle drives off.
     '''
+    # 1. marker not seen: carry on briefly, then turn back toward the road
+    #    axis (which brings the marker back into view) at a crawl
+    if pose is None:
+        _ST['miss'] += 1
+        if _ST['miss'] <= MISS_HOLD:
+            return _ST['steer'], 0.5 * _ST['speed'], False
+        back = 0.5 * _ST['side']
+        return back, SPEED_CREEP, False
+    _ST['miss'] = 0
 
-    # ADD YOUR CODE HERE
+    lateral, heading = pose['lateral'], pose['heading']
+    forward = pose['forward']
+    a = abs(lateral)
+    if _ST['side'] == 0.0 and lateral != 0.0:
+        _ST['side'] = float(np.sign(lateral))
 
-    return 0.0, 0.0, False
+    # 2. crossing angle, fixed from the first pose: the smallest angle that
+    #    still reaches the line before CROSS_END, found from the path geometry
+    if _ST['theta_c'] is None:
+        room = max(forward - CROSS_END, 0.1)
+        theta = THETA_HI
+        for th in np.linspace(THETA_LO, THETA_HI, 60):
+            lat_arcs = 2.0 * ARC_RADIUS * (1.0 - np.cos(th))
+            need = 2.0 * ARC_RADIUS * np.sin(th) + max(a - lat_arcs, 0.0) / np.tan(th)
+            if need <= room:
+                theta = th
+                break
+        _ST['theta_c'] = theta
+
+    # 3. planned heading for this offset and the curvature the plan itself needs
+    s = 1.0 if lateral >= 0.0 else -1.0
+    arc = np.arccos(np.clip(1.0 - a / ARC_RADIUS, -1.0, 1.0))
+    lin = LINE_GAIN * a
+    ref = min(_ST['theta_c'], arc, lin)
+    if arc < min(_ST['theta_c'], lin):
+        kappa_ff = s / ARC_RADIUS
+    else:
+        kappa_ff = 0.0
+    heading_wanted = -s * ref
+
+    # 4. steer: plan curvature + heading correction, as a front-wheel angle
+    kappa = FF_SCALE * kappa_ff + (heading_wanted - heading) / HEADING_DIST
+    steering = float(np.arctan(WHEEL_L * kappa))
+
+    # 5a. stand still briefly at a few points: the heading estimate only
+    #     sharpens while the vehicle is not moving, so each pause lets it settle
+    if _ST['pause_left'] > 0:
+        _ST['pause_left'] -= 1
+        _ST['steer'], _ST['speed'] = steering, SPEED_MID
+        return steering, 0.0, False
+    for i, fp in enumerate(PAUSE_AT):
+        if forward <= fp and not _ST['paused'][i]:
+            _ST['paused'][i] = True
+            _ST['pause_left'] = PAUSE_FRAMES
+            _ST['steer'], _ST['speed'] = steering, SPEED_MID
+            return steering, 0.0, False
+
+    # 5b. speed: slower as the bay nears, stop in the bay middle, report parked
+    #    only after standing still for a few frames
+    if forward <= STOP_FORWARD:
+        _ST['hold'] += 1
+        _ST['steer'], _ST['speed'] = steering, 0.0
+        return steering, 0.0, _ST['hold'] >= SETTLE_FRAMES
+    if forward > SLOW_FORWARD:
+        speed = SPEED_CRUISE
+    elif forward > CREEP_FORWARD:
+        speed = SPEED_MID
+    else:
+        speed = SPEED_CREEP
+    _ST['steer'], _ST['speed'] = steering, speed
+    return steering, speed, False
+
+
+# ---- helpers / globals ----
+THETA_LO, THETA_HI = 0.30, 0.74   # rad, range of the crossing angle (20..45 deg)
+CROSS_END          = 0.48         # m, forward by which the crossing should be finished
+ARC_RADIUS         = 0.14         # m, radius of the straightening-out arc
+LINE_GAIN          = 15.0         # rad per m, planned heading per metre of offset (close in)
+HEADING_DIST       = 0.12         # m, distance over which a heading error is corrected
+FF_SCALE           = 0.7          # share of the plan's own curvature that is fed forward
+WHEEL_L            = 0.12         # m, wheelbase
+SPEED_CRUISE       = 2.4          # rad/s
+SPEED_MID          = 1.2          # rad/s
+SPEED_CREEP        = 1.2          # rad/s, last stretch to the stop
+SLOW_FORWARD       = 0.90         # m
+CREEP_FORWARD      = 0.50         # m
+STOP_FORWARD       = 0.130        # m, just short of BAY_MIDDLE_FORWARD
+SETTLE_FRAMES      = 12           # frames stood still before parked=True
+MISS_HOLD          = 10           # frames to carry on blind when the marker is lost
+
+PAUSE_AT          = ()  # m, forward at which to pause
+PAUSE_FRAMES      = 14            # frames per pause
+
+_ST = {'miss': 0, 'hold': 0, 'steer': 0.0, 'speed': 0.0, 'theta_c': None, 'side': 0.0,
+       'pause_left': 0, 'paused': [False, False]}
 
 
 ##############################################################

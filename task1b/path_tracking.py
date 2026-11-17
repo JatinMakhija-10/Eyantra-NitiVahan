@@ -19,11 +19,11 @@
 *****************************************************************************************
 '''
 
-# Team ID:          < Team-ID >
-# Author List:      < Names of the team members who worked on this file, comma separated >
+# Team ID:          2199
+# Author List:      Jatin Makhija , Samriddhi Shrikrishan
 # Filename:         path_tracking.py
-# Functions:        ackermann_wheel_angles, compute_steering
-
+# Functions:        ackermann_wheel_angles, compute_steering, _wrap_angle
+# Global variables: K_CROSS, K_HEAD, STEER_LIMIT
 
 ####################### IMPORT MODULES #######################
 import argparse
@@ -49,69 +49,32 @@ WHEEL_OFFSET = 0.0275       # O: distance between kingpin axis and wheel centre.
 
 
 def ackermann_wheel_angles(delta):
-    '''
-    Purpose:
-    ---
-    Convert one desired steering angle into the two real front-wheel angles
-    the vehicle's Ackermann geometry implies.
+    half_pivot = TRACK_WIDTH / 2.0 - WHEEL_OFFSET
+    t = math.tan(delta)
 
-    Input Arguments:
-    ---
-    `delta` :          [ float ]
-        Desired steering angle in radians, as if the vehicle had a single
-        centred front wheel. Positive means turning left.
+    left_wheel_angle = math.atan2(WHEELBASE * t, WHEELBASE - half_pivot * t)
+    right_wheel_angle = math.atan2(WHEELBASE * t, WHEELBASE + half_pivot * t)
 
-    Returns:
-    ---
-    `left_wheel_angle`  : [ float ]  angle for the left front wheel, radians
-    `right_wheel_angle` : [ float ]  angle for the right front wheel, radians
-    '''
-
-    left_wheel_angle = 0
-    right_wheel_angle = 0
-
-    return left_wheel_angle, right_wheel_angle
+    return float(left_wheel_angle), float(right_wheel_angle)
 
 
 def compute_steering(target_y, current_values):
-    '''
-    Purpose:
-    ---
-    Compute the steering angle that drives the vehicle to `target_y` and keeps
-    it there. Called once per simulation step.
+    cross_track = current_values["y"] - target_y
+    heading_err = _wrap_angle(-current_values["yaw"])
 
-    Input Arguments:
-    ---
-    `target_y` :        [ float ]
-        Lateral position to converge to, in metres - see LANE_Y below.
+    steering = K_HEAD * heading_err + math.atan(K_CROSS * cross_track)
+    steering = max(-STEER_LIMIT, min(STEER_LIMIT, steering))
+    return float(steering)
 
-    `current_values` :  [ dict ]
-        {
-            "y"     : float,  current lateral position of the vehicle, in metres
-            "yaw"   : float,  current heading in radians, 0.0 when aligned with the road
-            "speed" : float,  current forward speed, in m/s
-            "dt"    : float,  seconds elapsed since the previous call
-            "t"     : float,  seconds since this run started
-        }
 
-    Returns:
-    ---
-    `steering` : [ float ]
-        Steering angle in radians. Positive turns the vehicle left, which on
-        this road means toward SMALLER y.
+# ---- helpers / tunables ----
+K_CROSS = 20.0
+K_HEAD = 2.0
+STEER_LIMIT = math.radians(30.0)
 
-    NOTE:
-    ---
-    While you are debugging, printing or plotting from in here is fine - do
-    whatever helps you see what your controller is doing.
 
-    Before you submit, take all of it back out. The submitted function must
-    ONLY compute and return the steering angle: no print(), no plotting, and
-    no commanding the simulator - the control loop below does all of that.
-    '''
-
-    steering = 0
-    return steering
+def _wrap_angle(a):
+    return math.atan2(math.sin(a), math.cos(a))
 
 
 ##############################################################

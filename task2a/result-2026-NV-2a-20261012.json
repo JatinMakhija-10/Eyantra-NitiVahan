@@ -1,0 +1,101 @@
+{
+    "generate": true,
+    "os_info": {
+        "name": "Windows",
+        "version": "10.0.26300",
+        "machine": "AMD64"
+    },
+    "python": "3.10.21",
+    "integrity": {
+        "parsed": true,
+        "provided_missing": [],
+        "student_missing": [],
+        "forbidden_calls": []
+    },
+    "schema": 4,
+    "laps": [
+        {
+            "lane": "outer",
+            "reason": "lap complete",
+            "samples": 1154,
+            "stops_raised": 2,
+            "stops_total": 2,
+            "sim_seconds": 148.95,
+            "wall_seconds": 23.95
+        },
+        {
+            "lane": "inner",
+            "reason": "lap complete",
+            "samples": 1103,
+            "stops_raised": 2,
+            "stops_total": 2,
+            "sim_seconds": 132.35,
+            "wall_seconds": 24.39
+        }
+    ],
+    "manifest": {
+        "schema": 4,
+        "laps": [
+            {
+                "lane": "outer",
+                "reason": "lap complete",
+                "samples": 1154,
+                "stops_raised": 2,
+                "stops_total": 2,
+                "sim_seconds": 148.95,
+                "wall_seconds": 23.95
+            },
+            {
+                "lane": "inner",
+                "reason": "lap complete",
+                "samples": 1103,
+                "stops_raised": 2,
+                "stops_total": 2,
+                "sim_seconds": 132.35,
+                "wall_seconds": 24.39
+            }
+        ],
+        "integrity": {
+            "parsed": true,
+            "provided_missing": [],
+            "student_missing": [],
+            "forbidden_calls": []
+        },
+        "csv_name": "NV_Task2A_run.csv",
+        "csv_rows": 2257,
+        "csv_columns": [
+            "lane",
+            "t_sim",
+            "t_wall",
+            "x",
+            "y",
+            "speed",
+            "stop_flag"
+        ],
+        "csv_sha256": "da39d807ec047e697f41ccd771ce300b3d0a8140e54a03c400ac8f48ddb9085d",
+        "stop_at": [
+            0.33,
+            0.66
+        ],
+        "stop_hold_s": 5.0,
+        "lap_close": 0.97,
+        "script_name": "task2a.py",
+        "script_sha256": "8d3ddeaaaf5a703fe8973be91681074d363309872c5ce018019888d2e37e579b",
+        "team": "2199",
+        "host": "LAPTOP-2P4K5I8O",
+        "os_info": {
+            "name": "Windows",
+            "version": "10.0.26300",
+            "machine": "AMD64"
+        },
+        "python": "3.10.21",
+        "started_at": "2026-10-12T17:39:24+00:00",
+        "finished_at": "2026-10-12T17:40:14+00:00",
+        "wall_seconds": 49.8,
+        "nonce": "e16716394faa4391915d8662d36cf85c"
+    },
+    "hmac": "c815cab58a100f6b2416a2b8ab3ee97562a6ce38eadcd86e61b611abef11ccdc",
+    "meta": {
+        "evaluation_time": 50.01446604728699
+    }
+}

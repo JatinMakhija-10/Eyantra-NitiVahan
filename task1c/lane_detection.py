@@ -19,11 +19,15 @@
 *****************************************************************************************
 '''
 
-# Team ID:          < Team-ID >
-# Author List:      < Names of the team members who worked on this file, comma separated >
+# Team ID:          2199
+# Author List:      Jatin Makhija , Samriddhi Shrikrishan
 # Filename:         lane_detection.py
-# Functions:        detect_lane
-# Global variables: < List any global variables you add, "None" if you add none >
+# Functions:        detect_lane, _marking_masks, _dash_points, _fit_dash_curve,
+#                   _estimate_from_dashes, _runs, _yellow_boundary, _yellow_only
+# Global variables: FRAME_W, FRAME_H, REF_ROW, VEHICLE_X, IMAGE_CENTRE_X, FIT_MIN_ROW,
+#                   SLOPE_ROWS, WHITE_V_MIN, WHITE_S_MAX, DARK_V_MAX, LEFT_COEF,
+#                   RIGHT_COEF_YELLOW, RIGHT_COEF_DASH, YELLOW_ONLY_LEFT,
+#                   YELLOW_ONLY_RIGHT, _RING_KERNEL, _RING_RADIUS
 
 
 ####################### IMPORT MODULES #######################
@@ -94,22 +98,186 @@ def detect_lane(frame):
     center_x = -1
     lane = LANE_UNKNOWN
 
-    #################### ADD YOUR CODE HERE ####################
-    # 1. Isolate the lane markings in `frame`
-    # 2. Work out which two markings bracket the vehicle
-    # 3. Compute the x-pixel of the lane centre   ->  center_x
-    # 4. Decide which lane the vehicle is in      ->  lane
-    ############################################################
+    height, width = frame.shape[:2]
+    scale_x = width / float(FRAME_W)        # the answer is reported in the caller's pixels
+    work = frame if (width, height) == (FRAME_W, FRAME_H) else cv2.resize(frame, (FRAME_W, FRAME_H))
+
+    hsv = cv2.cvtColor(work, cv2.COLOR_BGR2HSV)
+    yellow_mask, white_mask = _marking_masks(hsv)
+    dash_fit = _fit_dash_curve(_dash_points(white_mask, hsv))
+
+    if dash_fit is not None:
+        lane, cx = _estimate_from_dashes(dash_fit, yellow_mask)
+        center_x = int(round(cx * scale_x))
+    else:
+        # no usable dashes: fall back on the solid yellow boundary alone
+        side, x_yellow = _yellow_only(yellow_mask)
+        if x_yellow is not None:
+            lane = LANE_LEFT if side == "left" else LANE_RIGHT
+            a, b = YELLOW_ONLY_LEFT if side == "left" else YELLOW_ONLY_RIGHT
+            center_x = int(round((a * x_yellow + b) * scale_x))
+
+    # keep a detected lane's centre inside the frame; "unknown" stays -1
+    if center_x < 0 or center_x >= width:
+        center_x = int(min(max(center_x, 0), width - 1)) if lane != LANE_UNKNOWN else -1
 
     return {"center_x": center_x, "lane": lane}
 
 
 # ------------------------------------------------------------------
-# Add any helper functions and global variables you need below this
-# comment, and keep them ABOVE the "END OF YOUR IMPLEMENTATION" line.
-# They must be called from detect_lane() - the evaluation script only
-# ever calls that one function. List them in the file header too.
+# Helpers and globals. Everything below works in 640 x 480 coordinates.
+#
+# How it works, in short:
+#   1. Threshold white (dashes) and yellow (road edges) in HSV.
+#   2. Keep white blobs that sit on dark tarmac and fit x = f(y) through
+#      their centroids - this is the dashed divider, curved or straight.
+#   3. Lane = which side of the vehicle's reference column the divider is
+#      on, read at REF_ROW (the row the centre is also reported on).
+#   4. Lane centre = a small linear model of the divider position, the
+#      yellow edge on the same row and the divider's slope, fitted on the
+#      public clips. If no dashes are visible, use the yellow edge alone.
 # ------------------------------------------------------------------
+
+FRAME_W, FRAME_H = 640, 480
+
+REF_ROW = 305            # image row at which the lane centre is reported
+VEHICLE_X = 278.0        # column at REF_ROW where the divider flips the lane label
+IMAGE_CENTRE_X = 320.0   # middle of the frame, used only by the yellow-only fallback
+FIT_MIN_ROW = 215        # dashes above this row are ignored by the curve fit
+SLOPE_ROWS = (215, 430)  # rows used to measure the divider's local direction
+
+WHITE_V_MIN = 160        # brightness a pixel needs to count as white paint
+WHITE_S_MAX = 50         # saturation limit for white paint
+DARK_V_MAX = 70          # brightness limit for "dark tarmac"
+_RING_KERNEL = np.ones((9, 9), np.uint8)
+_RING_RADIUS = _RING_KERNEL.shape[0] // 2
+
+# Lane-centre models, x at REF_ROW in 640x480 px, least-squares fitted on the
+# public clips and validated leave-one-clip-out.
+LEFT_COEF = (0.9256, -132.21)                        # a*x_dash + b
+RIGHT_COEF_YELLOW = (0.972, 0.2042, 45.87, 38.06)    # a*x_dash + b*x_yellow + c*slope + d
+RIGHT_COEF_DASH = (0.6648, 0.5265, 102.62)           # a*x_dash + b*x_dash(row 215) + c
+YELLOW_ONLY_LEFT = (0.7098, 208.35)                  # fallback: a*x_yellow + b
+YELLOW_ONLY_RIGHT = (0.5836, 17.06)
+
+
+def _marking_masks(hsv):
+    """Binary masks of the yellow edge lines and the white paint."""
+    yellow = cv2.inRange(hsv, (18, 100, 100), (38, 255, 255))
+    white = cv2.inRange(hsv, (0, 0, WHITE_V_MIN), (180, WHITE_S_MAX, 255))
+    white[410:, 215:420] = 0        # the vehicle's own bonnet
+    white[:150, :] = 0              # too far away to be useful
+    return yellow, white
+
+
+def _dash_points(white, hsv):
+    """Centroids of the white blobs that sit on dark tarmac (the dashes)."""
+    dark = hsv[:, :, 2] <= DARK_V_MAX
+    count, labels, stats, centroids = cv2.connectedComponentsWithStats(white, connectivity=8)
+    points = []
+    for i in range(1, count):
+        area = stats[i, cv2.CC_STAT_AREA]
+        if area < 15 or area > 4000:
+            continue
+        # work on the blob's bounding box (plus the ring's reach), not the whole frame
+        x0 = max(stats[i, cv2.CC_STAT_LEFT] - _RING_RADIUS, 0)
+        y0 = max(stats[i, cv2.CC_STAT_TOP] - _RING_RADIUS, 0)
+        x1 = min(stats[i, cv2.CC_STAT_LEFT] + stats[i, cv2.CC_STAT_WIDTH] + _RING_RADIUS, FRAME_W)
+        y1 = min(stats[i, cv2.CC_STAT_TOP] + stats[i, cv2.CC_STAT_HEIGHT] + _RING_RADIUS, FRAME_H)
+        blob = (labels[y0:y1, x0:x1] == i).astype(np.uint8)
+        ring = (cv2.dilate(blob, _RING_KERNEL) > 0) & (blob == 0)
+        if dark[y0:y1, x0:x1][ring].mean() < 0.6:     # buildings, bonnet, signs ...
+            continue
+        points.append((centroids[i][0], centroids[i][1]))
+    return points
+
+
+def _fit_dash_curve(points):
+    """x = f(y) through the nearer dash centroids, rejecting outliers.
+
+    Only dashes in the lower part of the frame are used: far away the road
+    bends sideways and x is no longer a smooth function of y.
+    """
+    pts = np.array([p for p in points if p[1] >= FIT_MIN_ROW])
+    if len(pts) < 2:
+        return None
+    xs, ys = pts[:, 0], pts[:, 1]
+    degree = 2 if len(pts) >= 3 else 1
+    keep = np.ones(len(pts), bool)
+    for _ in range(3):
+        if keep.sum() < degree + 1:
+            break
+        coeffs = np.polyfit(ys[keep], xs[keep], degree)
+        new_keep = np.abs(np.polyval(coeffs, ys) - xs) < 12
+        if new_keep.sum() < degree + 1 or (new_keep == keep).all():
+            break
+        keep = new_keep
+    if keep.sum() < degree + 1:
+        return None
+    return np.polyfit(ys[keep], xs[keep], degree)
+
+
+def _estimate_from_dashes(dash_fit, yellow_mask):
+    """Lane label and lane-centre x (640x480 px) from the fitted divider."""
+    near_row, far_row = SLOPE_ROWS[1], SLOPE_ROWS[0]
+    x_dash = float(np.polyval(dash_fit, REF_ROW))
+    x_far = float(np.polyval(dash_fit, far_row))
+    slope = (x_far - float(np.polyval(dash_fit, near_row))) / (near_row - far_row)
+
+    # divider to the right of the vehicle's reference column -> vehicle is in the left lane
+    lane = LANE_LEFT if x_dash > VEHICLE_X else LANE_RIGHT
+    if lane == LANE_LEFT:
+        a, b = LEFT_COEF
+        return lane, a * x_dash + b
+
+    x_yellow = _yellow_boundary(yellow_mask, REF_ROW, x_dash, "right")
+    if x_yellow is not None:
+        a, b, c, d = RIGHT_COEF_YELLOW
+        return lane, a * x_dash + b * x_yellow + c * slope + d
+    a, b, c = RIGHT_COEF_DASH
+    return lane, a * x_dash + b * x_far + c
+
+
+def _runs(mask_row):
+    """(first, last) column of each horizontal run of set pixels in one mask row."""
+    xs = np.where(mask_row > 0)[0]
+    if len(xs) == 0:
+        return []
+    return [(r[0], r[-1]) for r in np.split(xs, np.where(np.diff(xs) > 3)[0] + 1)]
+
+
+def _yellow_boundary(yellow, row, x_dash, side):
+    """Centre of the yellow run nearest the dashes, on the given side of them."""
+    best = None
+    for lo, hi in _runs(yellow[row]):
+        if hi - lo < 2:
+            continue
+        cx = 0.5 * (lo + hi)
+        if side == "right" and cx > x_dash and (best is None or cx < best):
+            best = cx
+        if side == "left" and cx < x_dash and (best is None or cx > best):
+            best = cx
+    return best
+
+
+def _yellow_only(yellow):
+    """Fallback: the thickest yellow run in the lower half decides side and position."""
+    best = None
+    for row in (400, 380, 360, 340, 320, REF_ROW):
+        for lo, hi in _runs(yellow[row]):
+            if best is None or (hi - lo) > best[2]:
+                best = (0.5 * (lo + hi), row, hi - lo)
+        if best is not None and best[2] > 12:
+            break
+    if best is None:
+        return None, None
+    side = "left" if best[0] < IMAGE_CENTRE_X else "right"
+    # refine the position on REF_ROW, using the run closest to the one found
+    wide = [r for r in _runs(yellow[REF_ROW]) if r[1] - r[0] >= 2]
+    if wide:
+        cand = min(wide, key=lambda r: abs(0.5 * (r[0] + r[1]) - best[0]))
+        return side, 0.5 * (cand[0] + cand[1])
+    return side, best[0]
 
 
 ##############################################################

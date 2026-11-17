@@ -1,0 +1,40 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Archives & Temporary Packaging
+*.zip
+*.rar
+*.tar.gz
+*.7z
+
+# Backup files
+*_backup.py
+*_done.py
+
+# Virtual environments
+env/
+venv/
+ENV/
+.venv/
+
+# IDE and editors
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Operating System files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Temporary debug dumps
+debug_out/
+overlays/
+frames/
